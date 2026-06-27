@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Join the queue</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="bg-decor"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>
+      </span>
+      <span id="orgTitle">Smart Queue Bot</span>
+    </div>
+    <span class="live-dot">Live updates</span>
+  </header>
+
+  <main class="wrap">
+    <section class="card hidden" id="notFound" style="max-width:500px; margin:50px auto; text-align:center;">
+      <h2>Organization not found</h2>
+      <p class="muted">This queue link doesn't seem to be valid. Please check with the organization for the correct link.</p>
+    </section>
+
+    <div class="grid cols-2" id="main">
+      <!-- Join form -->
+      <section class="card hoverable" id="joinCard">
+        <h2 id="joinHeading">Join the queue</h2>
+        <p class="hint">Fill in your details and you'll get a ticket number instantly.</p>
+        <form id="joinForm">
+          <label for="service">Service needed</label>
+          <select id="service" required></select>
+          <label for="name">Your name</label>
+          <input id="name" type="text" placeholder="e.g. Ada Obi" required />
+          <label for="phone">Phone number <span class="muted">(optional)</span></label>
+          <input id="phone" type="tel" placeholder="e.g. 0801 234 5678" />
+          <button class="btn" type="submit">
+            Join queue
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </button>
+        </form>
+      </section>
+
+      <!-- Live status of the customer's ticket -->
+      <section class="card hidden" id="statusCard">
+        <div class="ticket-head">
+          <div class="ticket-number" id="ticketNumber">#0<small id="serviceName">Service</small></div>
+          <span class="badge waiting" id="statusBadge">waiting</span>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="v" id="positionVal">–</div><div class="l">Your position</div></div>
+          <div class="stat"><div class="v" id="nowServingVal">–</div><div class="l">Now serving</div></div>
+          <div class="stat"><div class="v" id="waitVal">–</div><div class="l">Est. wait (min)</div></div>
+        </div>
+        <h2 style="font-size:1.02rem; display:flex; align-items:center; gap:9px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;color:var(--accent)"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Messages from the bot
+        </h2>
+        <div class="feed" id="feed"></div>
+        <div style="display:flex; gap:10px; margin-top:18px;">
+          <button class="btn ghost small" id="newBtn" style="flex:1;">Join again</button>
+          <button class="btn danger small" id="cancelBtn" style="flex:1;">Leave queue</button>
+        </div>
+      </section>
+    </div>
+
+    <p class="foot">Powered by Smart Queue Bot — a simulation: messages appear here instead of real SMS.</p>
+  </main>
+
+  <div class="toast" id="toast"></div>
+  <script src="/js/join.js"></script>
+</body>
+</html>

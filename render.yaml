@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: gbemibot
+    env: docker
+    plan: free
+    autoDeploy: true
+    healthCheckPath: /api/health
+    envVars:
+      - key: QUEUEBOT_DB_PATH
+        value: /data/queue.db
+    disk:
+      name: queue-data
+      mountPath: /data
+      sizeGB: 1

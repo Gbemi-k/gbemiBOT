@@ -1,0 +1,15 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Database (generated at runtime)
+backend/queue.db
+
+# Logs
+*.log
+
+# Editors
+.vscode/
+.idea/
+.DS_Store

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard · Smart Queue Bot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="shell">
+    <!-- Sidebar: vertical on desktop, horizontal bar on mobile -->
+    <aside class="sidebar">
+      <div class="side-brand">
+        <span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4M8 16h0M16 16h0"/></svg></span>
+        <span>Queue<span class="gradient-text">Bot</span></span>
+      </div>
+
+      <nav class="side-nav">
+        <button data-tab="queue" class="active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Queue
+        </button>
+        <button data-tab="services">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18M3 12h18M3 17h18"/></svg>
+          Services
+        </button>
+        <button data-tab="report">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/></svg>
+          Report
+        </button>
+      </nav>
+
+      <div class="side-foot">
+        <div class="org" id="orgName">…</div>
+        <button class="link-btn" id="logoutBtn">Log out</button>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="main">
+      <!-- Shareable customer link -->
+      <div class="share">
+        <h3>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:19px;height:19px"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+          Your queue link
+        </h3>
+        <p>Share this with your customers — print it, text it, or add a QR code on the door.</p>
+        <div class="linkrow">
+          <input id="shareLink" type="text" readonly />
+          <button class="btn" id="copyBtn">Copy</button>
+          <button class="btn outline" id="openBtn">Open ↗</button>
+        </div>
+      </div>
+
+      <div class="row-between">
+        <div>
+          <h1 class="page-title" id="panelTitle">Queue</h1>
+          <p class="page-sub" id="panelSub">Call the next person — the queue updates automatically.</p>
+        </div>
+        <span class="live-dot">Live</span>
+      </div>
+
+      <!-- QUEUE -->
+      <section class="tab-panel active" id="panel-queue">
+        <div class="grid cols-2" id="board">
+          <div class="card skel skel-card"></div>
+          <div class="card skel skel-card"></div>
+        </div>
+      </section>
+
+      <!-- SERVICES (also the first-run setup) -->
+      <section class="tab-panel" id="panel-services">
+        <div class="card" style="margin-bottom:20px;">
+          <h2>Choose your services</h2>
+          <p class="hint">Pick a starter set for your type of organization, tweak the selection, then add them. You can always add or remove more later.</p>
+
+          <div class="tmpl-row" id="tmplRow"><!-- industry buttons injected here --></div>
+          <div class="chips" id="tmplChips"><!-- selectable service chips injected here --></div>
+          <button class="btn" id="addSelectedBtn" style="margin-top:14px; width:auto;" disabled>Add selected services</button>
+
+          <hr class="divider" />
+
+          <h2 style="font-size:1rem;">Add a custom service</h2>
+          <form class="inline-form" id="addServiceForm">
+            <div>
+              <label for="svc_name">Service name</label>
+              <input id="svc_name" type="text" placeholder="e.g. VIP Desk" required />
+            </div>
+            <div style="max-width:160px;">
+              <label for="svc_min">Avg minutes</label>
+              <input id="svc_min" type="number" min="1" max="600" value="5" />
+            </div>
+            <button class="btn" type="submit">+ Add</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>Your services</h2>
+          <p class="hint">These are the queues your customers can join.</p>
+          <div id="serviceList"></div>
+        </div>
+      </section>
+
+      <!-- REPORT -->
+      <section class="tab-panel" id="panel-report">
+        <div class="row-between" style="margin-bottom:16px;">
+          <span class="muted" id="reportDate">Today's activity</span>
+          <button class="btn small ghost" id="refreshReport">↻ Refresh</button>
+        </div>
+        <div class="kpis" id="kpis"></div>
+        <section class="card">
+          <h2>By service</h2>
+          <p class="hint">How each line performed today.</p>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Service</th><th>Issued</th><th>Served</th><th>Cancelled</th><th>Avg. time</th></tr></thead>
+              <tbody id="serviceRows"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="/js/dashboard.js"></script>
+</body>
+</html>
