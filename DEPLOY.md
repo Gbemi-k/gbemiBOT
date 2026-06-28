@@ -52,6 +52,24 @@ disk:
 
 For a stronger production setup, move from SQLite to PostgreSQL.
 
+## Neon PostgreSQL
+
+The app uses PostgreSQL automatically when `DATABASE_URL` is set.
+
+1. Create a free Neon project.
+2. Copy the pooled or standard connection string from Neon.
+3. In Render, open the `gbemibot` web service.
+4. Go to **Environment**.
+5. Add:
+
+```text
+DATABASE_URL=postgresql://...
+```
+
+6. Redeploy the service.
+
+On startup, the app creates the required tables if they do not already exist.
+
 ## Production Notes
 
 - Use HTTPS only. Render and similar platforms provide HTTPS on their generated URLs.

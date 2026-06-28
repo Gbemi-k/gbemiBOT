@@ -154,6 +154,10 @@ input:focus, select:focus { outline: none; border-color: var(--accent-2); box-sh
 .badge.serving   { background: var(--good-soft); color: var(--good); }
 .badge.served    { background: var(--surface-2); color: var(--muted); }
 .badge.cancelled { background: var(--bad-soft); color: var(--bad); }
+.badge.no_show,
+.badge.closed    { background: var(--bad-soft); color: var(--bad); }
+.badge.open      { background: var(--good-soft); color: var(--good); }
+.badge.paused    { background: var(--warn-soft); color: var(--warn); }
 
 .live-dot { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.85rem; font-weight: 600; }
 .live-dot::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 0 rgba(21,163,74,.5); animation: pulse 2s infinite; }
@@ -276,6 +280,9 @@ input:focus, select:focus { outline: none; border-color: var(--accent-2); box-sh
 }
 .waiting-list li .tn { font-weight: 800; color: var(--accent); }
 .waiting-list .empty { color: var(--muted); border-style: dashed; justify-content: center; }
+.action-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; margin-top: auto; }
+.action-row .btn { margin: 0; }
+.action-row .btn.danger { width: auto; }
 
 .feed { display: flex; flex-direction: column; gap: 11px; max-height: 330px; overflow-y: auto; padding-right: 4px; }
 .msg { display: flex; gap: 10px; align-items: flex-start; animation: rise .35s var(--ease) both; }
@@ -324,6 +331,7 @@ input:focus, select:focus { outline: none; border-color: var(--accent-2); box-sh
 
 .svc-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 15px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-sm); margin-bottom: 8px; }
 .svc-row .meta { color: var(--muted); font-size: 0.84rem; }
+.svc-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .inline-form { display: flex; gap: 11px; flex-wrap: wrap; align-items: flex-end; margin-top: 14px; }
 .inline-form > div { flex: 1; min-width: 150px; }
 .inline-form label { margin-top: 0; }

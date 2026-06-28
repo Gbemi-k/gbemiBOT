@@ -87,6 +87,10 @@ class NextRequest(BaseModel):
     service_id: int
 
 
+class ServiceStatusRequest(BaseModel):
+    status: str = Field(pattern="^(open|paused|closed)$")
+
+
 class ServiceRequest(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     avg_minutes: float = Field(default=5, gt=0, le=600)
@@ -148,6 +152,14 @@ def owner_next(req: NextRequest, account: dict = Depends(current_account)):
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+@app.post("/api/owner/no-show")
+def owner_no_show(req: NextRequest, account: dict = Depends(current_account)):
+    try:
+        return queue_service.mark_no_show(account["id"], req.service_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 @app.get("/api/owner/report")
 def owner_report(account: dict = Depends(current_account)):
     return queue_service.daily_report(account["id"])
@@ -179,6 +191,16 @@ def owner_remove_service(service_id: int, account: dict = Depends(current_accoun
     try:
         queue_service.remove_service(account["id"], service_id)
         return {"ok": True}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.post("/api/owner/services/{service_id}/status")
+def owner_service_status(
+    service_id: int, req: ServiceStatusRequest, account: dict = Depends(current_account)
+):
+    try:
+        return queue_service.set_service_status(account["id"], service_id, req.status)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 

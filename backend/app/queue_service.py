@@ -13,7 +13,7 @@ target service really belongs to that account.
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Optional
 
 from .database import get_connection
@@ -72,6 +72,24 @@ def _now() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
 
+def _today_bounds() -> tuple[str, str]:
+    start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    end = start + timedelta(days=1)
+    return start.isoformat(timespec="seconds"), end.isoformat(timespec="seconds")
+
+
+def _minutes_between(start_iso: Optional[str], end_iso: Optional[str]) -> Optional[float]:
+    if not start_iso or not end_iso:
+        return None
+    try:
+        start = datetime.fromisoformat(start_iso)
+        end = datetime.fromisoformat(end_iso)
+    except ValueError:
+        return None
+    minutes = (end - start).total_seconds() / 60
+    return minutes if minutes > 0 else None
+
+
 def _ordinal(n: int) -> str:
     """1 -> '1st', 2 -> '2nd', 11 -> '11th', etc."""
     if 10 <= n % 100 <= 20:
@@ -123,20 +141,25 @@ def _avg_minutes(conn: sqlite3.Connection, service_id: int) -> float:
     svc = _service_row(conn, service_id)
     prior = float(svc["avg_minutes"] or DEFAULT_AVG_MINUTES)
 
-    row = conn.execute(
+    start, end = _today_bounds()
+    rows = conn.execute(
         """
-        SELECT COUNT(*) AS n,
-               AVG((julianday(finished_at) - julianday(called_at)) * 24 * 60) AS m
+        SELECT called_at, finished_at
         FROM tickets
         WHERE service_id = ? AND status = 'served'
           AND called_at IS NOT NULL AND finished_at IS NOT NULL
-          AND date(created_at) = date('now', 'localtime')
+          AND created_at >= ? AND created_at < ?
         """,
-        (service_id,),
-    ).fetchone()
+        (service_id, start, end),
+    ).fetchall()
 
-    n = row["n"] or 0
-    measured = row["m"] if (row["m"] and row["m"] > 0) else None
+    durations = [
+        m
+        for m in (_minutes_between(r["called_at"], r["finished_at"]) for r in rows)
+        if m is not None
+    ]
+    n = len(durations)
+    measured = (sum(durations) / n) if n else None
     if not n or measured is None:
         return round(prior, 1)  # no real data yet → use the configured time
 
@@ -197,6 +220,8 @@ def _service_summary(conn: sqlite3.Connection, s: sqlite3.Row) -> dict[str, Any]
         "waiting": waiting,
         "now_serving": ns["ticket_number"] if ns else None,
         "avg_minutes": _avg_minutes(conn, s["id"]),
+        "status": s["status"],
+        "accepting": s["active"] == 1 and s["status"] == "open",
     }
 
 
@@ -224,7 +249,7 @@ def public_org_view(slug: str) -> dict[str, Any]:
         if acc is None:
             raise ValueError("Organization not found")
         services = conn.execute(
-            "SELECT * FROM services WHERE account_id = ? AND active = 1 ORDER BY name",
+            "SELECT * FROM services WHERE account_id = ? AND active = 1 AND status = 'open' ORDER BY name",
             (acc["id"],),
         ).fetchall()
         return {
@@ -333,6 +358,22 @@ def remove_service(account_id: int, service_id: int) -> None:
         conn.close()
 
 
+def set_service_status(account_id: int, service_id: int, status: str) -> dict[str, Any]:
+    """Pause, open, or close an active service line."""
+    status = (status or "").strip().lower()
+    if status not in {"open", "paused", "closed"}:
+        raise ValueError("Unknown service status")
+    conn = get_connection()
+    try:
+        svc = _owned_service(conn, service_id, account_id)
+        conn.execute("UPDATE services SET status = ? WHERE id = ?", (status, service_id))
+        conn.commit()
+        updated = conn.execute("SELECT * FROM services WHERE id = ?", (svc["id"],)).fetchone()
+        return _service_summary(conn, updated)
+    finally:
+        conn.close()
+
+
 # --------------------------------------------------------------------------- #
 # Queue actions
 # --------------------------------------------------------------------------- #
@@ -347,12 +388,15 @@ def join_queue(
     conn = get_connection()
     try:
         svc = _owned_service(conn, service_id, account_id)
+        if svc["status"] != "open":
+            raise ValueError(f"{svc['name']} is {svc['status']} right now")
 
         # Per-service, per-day ticket number.
+        start, end = _today_bounds()
         last = conn.execute(
             "SELECT MAX(ticket_number) AS n FROM tickets "
-            "WHERE service_id = ? AND date(created_at) = date('now', 'localtime')",
-            (service_id,),
+            "WHERE service_id = ? AND created_at >= ? AND created_at < ?",
+            (service_id, start, end),
         ).fetchone()["n"]
         ticket_number = (last or 0) + 1
 
@@ -459,6 +503,8 @@ def call_next(account_id: int, service_id: int) -> dict[str, Any]:
     conn = get_connection()
     try:
         svc = _owned_service(conn, service_id, account_id)
+        if svc["status"] == "closed":
+            raise ValueError(f"{svc['name']} is closed")
 
         # 1) Finish the person currently at the counter.
         current = _now_serving(conn, service_id)
@@ -511,6 +557,56 @@ def call_next(account_id: int, service_id: int) -> dict[str, Any]:
         conn.close()
 
 
+def mark_no_show(account_id: int, service_id: int) -> dict[str, Any]:
+    """Mark the current person as no-show, then call the next waiting person."""
+    conn = get_connection()
+    try:
+        svc = _owned_service(conn, service_id, account_id)
+        current = _now_serving(conn, service_id)
+        if current is None:
+            raise ValueError("No one is currently being served")
+        conn.execute(
+            "UPDATE tickets SET status = 'no_show', finished_at = ? WHERE id = ?",
+            (_now(), current["id"]),
+        )
+        _add_notification(
+            conn,
+            current["id"],
+            "no_show",
+            f"{current['name']}, ticket {current['ticket_number']} was marked as no-show for {svc['name']}.",
+        )
+        nxt = conn.execute(
+            "SELECT * FROM tickets WHERE service_id = ? AND status = 'waiting' ORDER BY id LIMIT 1",
+            (service_id,),
+        ).fetchone()
+        called = None
+        if nxt is not None and svc["status"] != "closed":
+            conn.execute(
+                "UPDATE tickets SET status = 'serving', called_at = ? WHERE id = ?",
+                (_now(), nxt["id"]),
+            )
+            _add_notification(
+                conn,
+                nxt["id"],
+                "your_turn",
+                f"It's your turn, {nxt['name']}! Please proceed to {svc['name']} "
+                f"(ticket {nxt['ticket_number']}).",
+            )
+            called = nxt
+        _recompute_almost(conn, service_id)
+        conn.commit()
+        return {
+            "service": svc["name"],
+            "service_id": service_id,
+            "no_show": current["ticket_number"],
+            "now_serving": called["ticket_number"] if called else None,
+            "now_serving_name": called["name"] if called else None,
+            "queue_empty": called is None,
+        }
+    finally:
+        conn.close()
+
+
 # --------------------------------------------------------------------------- #
 # Owner dashboard data
 # --------------------------------------------------------------------------- #
@@ -535,6 +631,7 @@ def staff_overview(account_id: int) -> list[dict[str, Any]]:
                     "id": s["id"],
                     "name": s["name"],
                     "avg_minutes": _avg_minutes(conn, s["id"]),
+                    "status": s["status"],
                     "now_serving": (
                         {"ticket_number": ns["ticket_number"], "name": ns["name"]}
                         if ns
@@ -553,61 +650,50 @@ def daily_report(account_id: int) -> dict[str, Any]:
     """Summary of today's activity for this account's report page."""
     conn = get_connection()
     try:
-        totals = conn.execute(
+        start, end = _today_bounds()
+        rows = conn.execute(
             """
-            SELECT
-                COUNT(*) AS issued,
-                SUM(t.status = 'served')    AS served,
-                SUM(t.status = 'cancelled') AS cancelled,
-                SUM(t.status = 'waiting')   AS waiting,
-                SUM(t.status = 'serving')   AS serving
-            FROM tickets t
-            JOIN services s ON s.id = t.service_id
-            WHERE s.account_id = ?
-              AND date(t.created_at) = date('now', 'localtime')
-            """,
-            (account_id,),
-        ).fetchone()
-
-        per_service = conn.execute(
-            """
-            SELECT s.name AS service,
-                   COUNT(t.id) AS issued,
-                   SUM(t.status = 'served')    AS served,
-                   SUM(t.status = 'cancelled') AS cancelled,
-                   AVG(CASE WHEN t.status = 'served'
-                            THEN (julianday(t.finished_at) - julianday(t.called_at)) * 24 * 60
-                       END) AS avg_service_minutes
+            SELECT s.id AS service_id, s.name AS service, t.id, t.status, t.called_at, t.finished_at
             FROM services s
             LEFT JOIN tickets t
                    ON t.service_id = s.id
-                  AND date(t.created_at) = date('now', 'localtime')
+                  AND t.created_at >= ? AND t.created_at < ?
             WHERE s.account_id = ? AND s.active = 1
-            GROUP BY s.id
             ORDER BY s.name
             """,
-            (account_id,),
+            (start, end, account_id),
         ).fetchall()
+        totals = {"issued": 0, "served": 0, "cancelled": 0, "waiting": 0, "serving": 0, "no_show": 0}
+        grouped: dict[int, dict[str, Any]] = {}
+        for r in rows:
+            item = grouped.setdefault(
+                r["service_id"],
+                {"service": r["service"], "issued": 0, "served": 0, "cancelled": 0, "no_show": 0, "_durations": []},
+            )
+            if r["id"] is None:
+                continue
+            status = r["status"]
+            totals["issued"] += 1
+            item["issued"] += 1
+            if status in totals:
+                totals[status] += 1
+            if status in item:
+                item[status] += 1
+            if status == "served":
+                minutes = _minutes_between(r["called_at"], r["finished_at"])
+                if minutes is not None:
+                    item["_durations"].append(minutes)
 
-        def clean(row: sqlite3.Row) -> dict[str, Any]:
-            d = dict(row)
-            d["served"] = d.get("served") or 0
-            d["cancelled"] = d.get("cancelled") or 0
-            d["issued"] = d.get("issued") or 0
-            if d.get("avg_service_minutes") is not None:
-                d["avg_service_minutes"] = round(d["avg_service_minutes"], 1)
-            return d
+        per_service = []
+        for item in grouped.values():
+            durations = item.pop("_durations")
+            item["avg_service_minutes"] = round(sum(durations) / len(durations), 1) if durations else None
+            per_service.append(item)
 
         return {
             "date": datetime.now().strftime("%Y-%m-%d"),
-            "totals": {
-                "issued": totals["issued"] or 0,
-                "served": totals["served"] or 0,
-                "cancelled": totals["cancelled"] or 0,
-                "waiting": totals["waiting"] or 0,
-                "serving": totals["serving"] or 0,
-            },
-            "per_service": [clean(r) for r in per_service],
+            "totals": totals,
+            "per_service": per_service,
         }
     finally:
         conn.close()
