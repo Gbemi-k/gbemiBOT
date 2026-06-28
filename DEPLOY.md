@@ -26,15 +26,29 @@ Local development stores data at:
 backend/queue.db
 ```
 
-Hosted deployment should store data outside the app folder. This project supports:
+The included `render.yaml` is configured for Render's free web service tier, so
+you can get a public URL without adding a payment plan first. On the free tier,
+the app's SQLite database is temporary: user/account/queue data can be lost when
+the service restarts or redeploys.
+
+For real use, hosted deployment should store data outside the app folder. This
+project supports:
 
 ```text
 QUEUEBOT_DB_PATH=/data/queue.db
 ```
 
-The included `render.yaml` mounts `/data` as a persistent disk. If your hosting
-plan does not support persistent disks, the app can still start, but user data may
-be lost when the server restarts or redeploys.
+On a paid Render web service, you can add a persistent disk and set:
+
+```yaml
+envVars:
+  - key: QUEUEBOT_DB_PATH
+    value: /data/queue.db
+disk:
+  name: queue-data
+  mountPath: /data
+  sizeGB: 1
+```
 
 For a stronger production setup, move from SQLite to PostgreSQL.
 
@@ -45,4 +59,3 @@ For a stronger production setup, move from SQLite to PostgreSQL.
 - Add real SMS/WhatsApp/email notifications before using this with live customers.
 - Add backups, monitoring, session expiry, password reset, and rate limiting before
   relying on it for a business-critical queue.
-
