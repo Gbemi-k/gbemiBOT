@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reception Display - Smart Queue Bot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body class="display-body">
+  <main class="display-shell" id="displayApp">
+    <header class="display-header">
+      <div>
+        <p class="display-kicker">Reception Display</p>
+        <h1 id="displayOrg">Loading...</h1>
+      </div>
+      <div class="display-tools">
+        <button class="display-voice" id="voiceBtn" type="button">Enable voice</button>
+        <span class="display-clock" id="clock">--:--</span>
+      </div>
+    </header>
+    <section class="display-hero">
+      <div>
+        <p class="display-label">Now Serving</p>
+        <div class="display-ticket" id="heroTicket">--</div>
+      </div>
+      <div>
+        <p class="display-service" id="heroService">Waiting for the next call</p>
+        <p class="display-note" id="heroNote">Keep this screen open in the reception area.</p>
+      </div>
+    </section>
+    <section class="display-grid" id="displayGrid">
+      <div class="display-card skeleton-display"></div>
+      <div class="display-card skeleton-display"></div>
+    </section>
+  </main>
+  <section class="display-missing hidden" id="displayMissing">
+    <h1>Display not found</h1>
+    <p>Check the display link from the staff dashboard.</p>
+  </section>
+  <script src="/js/display.js"></script>
+</body>
+</html>

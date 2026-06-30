@@ -261,6 +261,56 @@ def public_org_view(slug: str) -> dict[str, Any]:
         conn.close()
 
 
+def public_display_view(slug: str) -> dict[str, Any]:
+    """Read-only waiting-room display data for an organization's active services."""
+    conn = get_connection()
+    try:
+        acc = conn.execute(
+            "SELECT id, name, slug FROM accounts WHERE slug = ?", (slug,)
+        ).fetchone()
+        if acc is None:
+            raise ValueError("Organization not found")
+        services = conn.execute(
+            "SELECT * FROM services WHERE account_id = ? AND active = 1 ORDER BY name",
+            (acc["id"],),
+        ).fetchall()
+        out = []
+        for s in services:
+            ns = _now_serving(conn, s["id"])
+            waiting_rows = conn.execute(
+                """
+                SELECT ticket_number
+                FROM tickets
+                WHERE service_id = ? AND status = 'waiting'
+                ORDER BY id
+                LIMIT 5
+                """,
+                (s["id"],),
+            ).fetchall()
+            waiting_count = conn.execute(
+                "SELECT COUNT(*) AS c FROM tickets WHERE service_id = ? AND status = 'waiting'",
+                (s["id"],),
+            ).fetchone()["c"]
+            out.append(
+                {
+                    "id": s["id"],
+                    "name": s["name"],
+                    "status": s["status"],
+                    "now_serving": ns["ticket_number"] if ns else None,
+                    "waiting_count": waiting_count,
+                    "next_tickets": [w["ticket_number"] for w in waiting_rows],
+                }
+            )
+        return {
+            "name": acc["name"],
+            "slug": acc["slug"],
+            "updated_at": _now(),
+            "services": out,
+        }
+    finally:
+        conn.close()
+
+
 # --------------------------------------------------------------------------- #
 # Service management (owner)
 # --------------------------------------------------------------------------- #

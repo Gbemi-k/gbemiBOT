@@ -46,12 +46,23 @@ async function loadAccount() {
   const me = await api("/api/auth/me");
   document.getElementById("orgName").textContent = me.name;
   const link = `${window.location.origin}/q/${me.slug}`;
+  const displayLink = `${window.location.origin}/display/${me.slug}`;
   document.getElementById("shareLink").value = link;
   document.getElementById("copyBtn").onclick = async () => {
     try { await navigator.clipboard.writeText(link); toast("Link copied!"); }
     catch { document.getElementById("shareLink").select(); toast("Press Ctrl+C to copy"); }
   };
   document.getElementById("openBtn").onclick = () => window.open(link, "_blank");
+  const linkRow = document.querySelector(".share .linkrow");
+  if (linkRow && !document.getElementById("displayBtn")) {
+    const btn = document.createElement("button");
+    btn.className = "btn outline";
+    btn.id = "displayBtn";
+    btn.type = "button";
+    btn.textContent = "Display";
+    btn.onclick = () => window.open(displayLink, "_blank");
+    linkRow.appendChild(btn);
+  }
 }
 
 document.getElementById("logoutBtn").onclick = async () => {

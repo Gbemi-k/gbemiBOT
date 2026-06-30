@@ -216,6 +216,14 @@ def public_org(slug: str):
         raise HTTPException(status_code=404, detail=str(exc))
 
 
+@app.get("/api/public/display/{slug}")
+def public_display(slug: str):
+    try:
+        return queue_service.public_display_view(slug)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
 @app.post("/api/public/org/{slug}/join")
 def public_join(slug: str, req: JoinRequest):
     org = queue_service.get_account_by_slug(slug)
@@ -272,6 +280,12 @@ def dashboard():
 def join_page(slug: str):
     # The page reads the slug from the URL and fetches the org via the API.
     return FileResponse(FRONTEND_DIR / "join.html")
+
+
+@app.get("/display/{slug}")
+def display_page(slug: str):
+    # Public read-only waiting-room display.
+    return FileResponse(FRONTEND_DIR / "display.html")
 
 
 # Static assets (css/js) and any other files. Mounted last so /api and the
