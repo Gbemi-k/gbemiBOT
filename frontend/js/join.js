@@ -11,6 +11,7 @@ const STORAGE_KEY = `queuebot.ticket.${slug}`;
 let pollTimer = null;
 let renderedMsgCount = 0;     // how many bot messages are already on screen
 let lastStatus = null;        // previous status (used to fire the "your turn" celebration)
+const TERMINAL_STATUSES = new Set(["served", "cancelled", "no_show"]);
 
 const BOT_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4M8 16h0M16 16h0"/></svg>`;
 
@@ -170,8 +171,13 @@ function render(t) {
   lastStatus = t.status;
 
   const cancelBtn = document.getElementById("cancelBtn");
-  if (["served", "cancelled"].includes(t.status)) { cancelBtn.disabled = true; stopPolling(); }
-  else { cancelBtn.disabled = false; }
+  if (TERMINAL_STATUSES.has(t.status)) {
+    cancelBtn.disabled = true;
+    localStorage.removeItem(STORAGE_KEY);
+    stopPolling();
+  } else {
+    cancelBtn.disabled = false;
+  }
 }
 
 /* ---- polling ------------------------------------------------------------- */
@@ -196,6 +202,6 @@ function stopPolling() { if (pollTimer) clearInterval(pollTimer); pollTimer = nu
   await loadOrg();
   if (localStorage.getItem(STORAGE_KEY)) {
     await refresh();
-    startPolling();
+    if (localStorage.getItem(STORAGE_KEY)) startPolling();
   }
 })();
